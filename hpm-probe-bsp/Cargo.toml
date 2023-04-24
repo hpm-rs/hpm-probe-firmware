@@ -1,0 +1,8 @@
+[package]
+name = "hpm-probe-bsp"
+version = "0.1.0"
+authors = ["tfx2001 <tfx2001@outlook.com>"]
+edition = "2021"
+
+[dependencies]
+hpm-ral = { git = "https://github.com/hpm-rs/hpm-ral", features = ["hpm6750"] }

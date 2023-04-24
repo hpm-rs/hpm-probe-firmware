@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "firmware",
+    "hpm-probe-bsp",
+]
+
+[profile.release]
+debug = true

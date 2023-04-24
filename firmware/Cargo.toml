@@ -1,0 +1,12 @@
+[package]
+name = "firmware"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+riscv = "0.10"
+hpm-rt = { git = "https://github.com/hpm-rs/hpm-rt" }
+hpm-ral = { git = "https://github.com/hpm-rs/hpm-ral", features = ["hpm6750"] }
+hpm-probe-bsp = { path = "../hpm-probe-bsp" }
+panic-halt = "0.2"
+embedded-hal = "0.2"
