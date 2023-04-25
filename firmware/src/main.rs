@@ -5,11 +5,13 @@ mod app;
 
 extern crate panic_halt;
 
-use hpm_probe_bsp as bsp;
-use hpm_ral as ral;
-use hpm_rt::entry;
+pub use hpm_probe_bsp as bsp;
+pub use hpm_ral as ral;
 
-use riscv::delay;
+use bsp::clock::{ClockConfigurator, Clocks};
+use bsp::delay::Delay;
+use bsp::gpio::{Gpio, Pins};
+use hpm_rt::entry;
 
 #[entry]
 fn main() -> ! {
@@ -18,13 +20,14 @@ fn main() -> ! {
     let pioc = unsafe { ral::ioc::PIOC10::instance() };
     let sysctl = unsafe { ral::sysctl::SYSCTL::instance() };
     let pllctl = unsafe { ral::pllctl::PLLCTL::instance() };
+    let mchtmr0 = unsafe { ral::mchtmr::MCHTMR::instance() };
 
-    let clk_cfgr = bsp::clock::ClockConfigurator::new(sysctl, pllctl);
+    let clk_cfgr = ClockConfigurator::new(sysctl, pllctl);
     let clocks = unsafe { clk_cfgr.freeze() };
 
-    let delay = delay::McycleDelay::new(clocks.get_clk_cpu0_freq());
+    let delay = Delay::new(mchtmr0);
 
-    let gpio = bsp::gpio::Gpio::new(gpio0, ioc, pioc);
+    let gpio = Gpio::new(gpio0, ioc, pioc);
     let pins = gpio.split();
 
     let mut app = app::App::new(clocks, pins, delay);

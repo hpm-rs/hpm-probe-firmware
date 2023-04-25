@@ -23,7 +23,8 @@ impl ClockConfigurator {
             GROUP0_0_VALUE,
             GPIO0_1: Linked,
             HDMA: Linked,
-            CONN: Linked
+            CONN: Linked,
+            MCHTMR0: Linked
         );
         modify_reg!(
             sysctl,
@@ -68,8 +69,10 @@ pub enum ClockSource {
     Pll4Clock0,
 }
 
+#[derive(Clone, Copy)]
 pub enum ClockName {
     CPU0,
+    MCHTMR0,
 }
 
 pub struct Clocks {
@@ -116,6 +119,7 @@ impl Clocks {
     pub fn get_clk_src(&self, name: ClockName) -> ClockSource {
         let mux = match name {
             ClockName::CPU0 => read_reg!(sysctl, self.sysctl, CLOCK_CLK_TOP_CPU0, MUX),
+            ClockName::MCHTMR0 => read_reg!(sysctl, self.sysctl, CLOCK_CLK_TOP_MCHTMR0, MUX),
         };
         unsafe { core::mem::transmute(mux as u8) }
     }
@@ -123,16 +127,21 @@ impl Clocks {
     pub fn get_clk_div(&self, name: ClockName) -> u32 {
         match name {
             ClockName::CPU0 => read_reg!(sysctl, self.sysctl, CLOCK_CLK_TOP_CPU0, DIV),
+            ClockName::MCHTMR0 => read_reg!(sysctl, self.sysctl, CLOCK_CLK_TOP_MCHTMR0, DIV),
         }
     }
 
     pub fn get_clk_freq(&self, name: ClockName) -> u32 {
-        let src = self.get_clk_src(ClockName::CPU0);
+        let src = self.get_clk_src(name);
         let div = self.get_clk_div(name);
         self.get_clk_src_freq(src) / (div + 1)
     }
 
     pub fn get_clk_cpu0_freq(&self) -> u32 {
         self.get_clk_freq(ClockName::CPU0)
+    }
+
+    pub fn get_clk_mchtmr0_freq(&self) -> u32 {
+        self.get_clk_freq(ClockName::MCHTMR0)
     }
 }

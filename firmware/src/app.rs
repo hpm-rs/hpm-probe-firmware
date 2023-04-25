@@ -1,20 +1,15 @@
-use hpm_probe_bsp as bsp;
-
-use embedded_hal::blocking::delay::DelayMs;
-use riscv::delay;
+use crate::bsp::clock::Clocks;
+use crate::bsp::delay::Delay;
+use crate::bsp::gpio::Pins;
 
 pub struct App<'a> {
-    clocks: bsp::clock::Clocks,
-    pins: bsp::gpio::Pins<'a>,
-    delay: delay::McycleDelay,
+    clocks: Clocks,
+    pins: Pins<'a>,
+    delay: Delay,
 }
 
 impl<'a> App<'a> {
-    pub fn new(
-        clocks: bsp::clock::Clocks,
-        pins: bsp::gpio::Pins<'a>,
-        delay: delay::McycleDelay,
-    ) -> Self {
+    pub fn new(clocks: Clocks, pins: Pins<'a>, delay: Delay) -> Self {
         App {
             clocks,
             pins,
@@ -25,10 +20,12 @@ impl<'a> App<'a> {
     pub unsafe fn setup(&self) {
         // Configure GPIOs
         self.pins.setup();
+
+        self.delay.set_base_clock(&self.clocks);
     }
 
     pub fn poll(&mut self) {
         self.pins.led_b.toggle();
-        self.delay.delay_ms(100);
+        self.delay.delay_us(100 * 1000);
     }
 }

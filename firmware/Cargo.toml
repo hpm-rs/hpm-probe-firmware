@@ -9,4 +9,3 @@ hpm-rt = { git = "https://github.com/hpm-rs/hpm-rt" }
 hpm-ral = { git = "https://github.com/hpm-rs/hpm-ral", features = ["hpm6750"] }
 hpm-probe-bsp = { path = "../hpm-probe-bsp" }
 panic-halt = "0.2"
-embedded-hal = "0.2"
