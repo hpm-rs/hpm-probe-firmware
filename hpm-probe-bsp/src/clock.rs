@@ -32,16 +32,17 @@ impl ClockConfigurator {
             GROUP0_1_VALUE,
             UARTO: Linked,
             SPI1: Linked,
-            SPI3: Linked
+            SPI2: Linked
         );
         modify_reg!(sysctl, self.sysctl, GROUP0_2_VALUE, USBO: Linked);
         // Set AHB clock source to PLL1 clock 1 and divider to 2 (200 MHz)
         modify_reg!(sysctl, self.sysctl, CLOCK_CLK_TOP_AHB, MUX: 3, DIV: 2);
         // Set UART0 clock source to osc24 and divider to 1 (24 MHz)
         modify_reg!(sysctl, self.sysctl, CLOCK_CLK_TOP_UART0, MUX: 0, DIV: 0);
+        modify_reg!(sysctl, self.sysctl, CLOCK_CLK_TOP_UART9, MUX: 0, DIV: 0);
         // Set SPI1 clock source to osc24 and divider to 1 (24 MHz)
         modify_reg!(sysctl, self.sysctl, CLOCK_CLK_TOP_SPI1, MUX: 0, DIV: 0);
-        modify_reg!(sysctl, self.sysctl, CLOCK_CLK_TOP_SPI3, MUX: 0, DIV: 0);
+        modify_reg!(sysctl, self.sysctl, CLOCK_CLK_TOP_SPI2, MUX: 0, DIV: 0);
 
         Clocks {
             sysctl: self.sysctl,
@@ -73,6 +74,10 @@ pub enum ClockSource {
 pub enum ClockName {
     CPU0,
     MCHTMR0,
+    UART0,
+    UART9,
+    SPI1,
+    SPI2,
 }
 
 pub struct Clocks {
@@ -120,6 +125,10 @@ impl Clocks {
         let mux = match name {
             ClockName::CPU0 => read_reg!(sysctl, self.sysctl, CLOCK_CLK_TOP_CPU0, MUX),
             ClockName::MCHTMR0 => read_reg!(sysctl, self.sysctl, CLOCK_CLK_TOP_MCHTMR0, MUX),
+            ClockName::UART0 => read_reg!(sysctl, self.sysctl, CLOCK_CLK_TOP_UART0, MUX),
+            ClockName::UART9 => read_reg!(sysctl, self.sysctl, CLOCK_CLK_TOP_UART9, MUX),
+            ClockName::SPI1 => read_reg!(sysctl, self.sysctl, CLOCK_CLK_TOP_SPI1, MUX),
+            ClockName::SPI2 => read_reg!(sysctl, self.sysctl, CLOCK_CLK_TOP_SPI2, MUX),
         };
         unsafe { core::mem::transmute(mux as u8) }
     }
@@ -128,6 +137,10 @@ impl Clocks {
         match name {
             ClockName::CPU0 => read_reg!(sysctl, self.sysctl, CLOCK_CLK_TOP_CPU0, DIV),
             ClockName::MCHTMR0 => read_reg!(sysctl, self.sysctl, CLOCK_CLK_TOP_MCHTMR0, DIV),
+            ClockName::UART0 => read_reg!(sysctl, self.sysctl, CLOCK_CLK_TOP_UART0, DIV),
+            ClockName::UART9 => read_reg!(sysctl, self.sysctl, CLOCK_CLK_TOP_UART9, DIV),
+            ClockName::SPI1 => read_reg!(sysctl, self.sysctl, CLOCK_CLK_TOP_SPI1, DIV),
+            ClockName::SPI2 => read_reg!(sysctl, self.sysctl, CLOCK_CLK_TOP_SPI2, DIV),
         }
     }
 
@@ -143,5 +156,21 @@ impl Clocks {
 
     pub fn get_clk_mchtmr0_freq(&self) -> u32 {
         self.get_clk_freq(ClockName::MCHTMR0)
+    }
+
+    pub fn get_clk_uart0_freq(&self) -> u32 {
+        self.get_clk_freq(ClockName::UART0)
+    }
+
+    pub fn get_clk_uart9_freq(&self) -> u32 {
+        self.get_clk_freq(ClockName::UART9)
+    }
+
+    pub fn get_clk_spi1_freq(&self) -> u32 {
+        self.get_clk_freq(ClockName::SPI1)
+    }
+
+    pub fn get_clk_spi2_freq(&self) -> u32 {
+        self.get_clk_freq(ClockName::SPI2)
     }
 }

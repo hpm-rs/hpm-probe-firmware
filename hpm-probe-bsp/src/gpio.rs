@@ -24,50 +24,45 @@ pub struct Pin<'a, const PORT: char, const PIN: u8> {
 macro_rules! impl_port {
     ($port:literal, $OE_VALUE:ident, $DO_SET:ident, $DO_CLEAR:ident, $DO_TOGGLE:ident, $DI_VALUE:ident) => {
         impl<'a, const PIN: u8> Pin<'a, $port, PIN> {
-            #[inline]
-            pub fn set_mode_output(&self) -> &Self {
+            #[inline(always)]
+            fn output_enable(&self, enable: bool) -> &Self {
                 let offset = PIN;
                 let mask = 0b1 << offset;
-                modify_reg!(gpio, self.gpio, $OE_VALUE, |r| r | mask);
+                match enable {
+                    true => modify_reg!(gpio, self.gpio, $OE_VALUE, |r| r | mask),
+                    false => modify_reg!(gpio, self.gpio, $OE_VALUE, |r| r & !mask),
+                }
                 self
             }
 
-            #[inline]
-            pub fn set_mode_input(&self) -> &Self {
-                let offset = PIN;
-                let mask = 0b1 << offset;
-                modify_reg!(gpio, self.gpio, $OE_VALUE, |r| r & !mask);
-                self
-            }
-
-            #[inline]
-            fn set_high(&self) -> &Self {
+            #[inline(always)]
+            pub fn set_high(&self) -> &Self {
                 write_reg!(gpio, self.gpio, $DO_SET, 1 << PIN);
                 self
             }
 
-            #[inline]
-            fn set_low(&self) -> &Self {
+            #[inline(always)]
+            pub fn set_low(&self) -> &Self {
                 write_reg!(gpio, self.gpio, $DO_CLEAR, 1 << PIN);
                 self
             }
 
-            #[inline]
-            pub fn set_state(&self, state: PinState) -> &Self {
+            #[inline(always)]
+            pub fn set_bool(&self, state: bool) -> &Self {
                 match state {
-                    PinState::Low => self.set_low(),
-                    PinState::High => self.set_high(),
+                    false => self.set_low(),
+                    true => self.set_high(),
                 }
             }
 
-            #[inline]
+            #[inline(always)]
             pub fn toggle(&self) -> &Self {
                 write_reg!(gpio, self.gpio, $DO_TOGGLE, 1 << PIN);
                 self
             }
 
-            #[inline]
-            pub fn get_sate(&self) -> PinState {
+            #[inline(always)]
+            pub fn get_state(&self) -> PinState {
                 match read_reg!(gpio, self.gpio, $DI_VALUE) >> PIN & 0b1 {
                     0 => PinState::Low,
                     1 => PinState::High,
@@ -75,17 +70,17 @@ macro_rules! impl_port {
                 }
             }
 
-            #[inline]
+            #[inline(always)]
             pub fn is_high(&self) -> bool {
-                match self.get_sate() {
+                match self.get_state() {
                     PinState::Low => false,
                     PinState::High => true,
                 }
             }
 
-            #[inline]
+            #[inline(always)]
             pub fn is_low(&self) -> bool {
-                match self.get_sate() {
+                match self.get_state() {
                     PinState::Low => true,
                     PinState::High => false,
                 }
@@ -95,7 +90,7 @@ macro_rules! impl_port {
 }
 
 macro_rules! pin {
-    ($PXX:ident: $port:literal, $pin:literal, $FUNC_CTL:ident, $PAD_CTL:ident) => {
+    ($PXX:ident: $port:literal, $pin:literal, $FUNC_CTL:ident, $PAD_CTL:ident, $AF_MODE:literal) => {
         pub type $PXX<'a> = Pin<'a, $port, $pin>;
 
         impl<'a> $PXX<'a> {
@@ -104,26 +99,49 @@ macro_rules! pin {
                 Pin { gpio, ioc, pioc }
             }
 
-            #[inline]
-            pub fn set_af(&self, alt: u32) -> &Self {
+            fn set_af(&self, alt: u32) -> &Self {
                 assert!(alt < 32);
                 modify_reg!(ioc, self.ioc, $FUNC_CTL, ALT_SELECT: alt);
+                if $port == 'Y' {
+                    modify_reg!(ioc, self.pioc, $FUNC_CTL, ALT_SELECT: 3);
+                }
                 self
             }
 
-            #[inline]
+            #[inline(always)]
+            fn set_loop_back(&self, on: bool) -> &Self {
+                modify_reg!(ioc, self.ioc, $FUNC_CTL, LOOP_BACK: on as u32);
+                self
+            }
+
+            #[inline(always)]
+            pub fn set_mode_output(&self) -> &Self {
+                self.set_af(0).output_enable(true)
+            }
+
+            #[inline(always)]
+            pub fn set_mode_input(&self) -> &Self {
+                self.set_af(0).output_enable(false)
+            }
+
+            #[inline(always)]
+            pub fn set_mode_alternate(&self) -> &Self {
+                self.set_af($AF_MODE)
+            }
+
+            #[inline(always)]
             pub fn set_push_pull(&self) -> &Self {
                 modify_reg!(ioc, self.ioc, $PAD_CTL, OD: Disable);
                 self
             }
 
-            #[inline]
+            #[inline(always)]
             pub fn set_open_drain(&self) -> &Self {
                 modify_reg!(ioc, self.ioc, $PAD_CTL, OD: Enable);
                 self
             }
 
-            #[inline]
+            #[inline(always)]
             pub fn set_pull(&self, pull: Pull) -> &Self {
                 match pull {
                     Pull::Floating => modify_reg!(ioc, self.ioc, $PAD_CTL, PE: Disable),
@@ -132,17 +150,17 @@ macro_rules! pin {
                 self
             }
 
-            #[inline]
+            #[inline(always)]
             pub fn set_pull_down(&self) -> &Self {
                 self.set_pull(Pull::PullDown)
             }
 
-            #[inline]
+            #[inline(always)]
             pub fn set_pull_up(&self) -> &Self {
                 self.set_pull(Pull::PullUp)
             }
 
-            #[inline]
+            #[inline(always)]
             pub fn set_pull_floating(&self) -> &Self {
                 self.set_pull(Pull::Floating)
             }
@@ -158,13 +176,13 @@ macro_rules! pins {
             $DO_CLEAR:ident,
             $DO_TOGGLE:ident,
             $DI_VALUE:ident,
-            [$(($PXX:ident, $pxx:ident, $pin:literal, $FUNC_CTL:ident, $PAD_CTL:ident)),*]
+            [$(($PXX:ident, $pxx:ident, $pin:literal, $FUNC_CTL:ident, $PAD_CTL:ident, $AF_MODE:literal),)*]
         }
     ),*) => {
         $(
             impl_port!($port, $OE_VALUE, $DO_SET, $DO_CLEAR, $DO_TOGGLE, $DI_VALUE);
 
-            $(pin!($PXX: $port, $pin, $FUNC_CTL, $PAD_CTL);)*
+            $(pin!($PXX: $port, $pin, $FUNC_CTL, $PAD_CTL, $AF_MODE);)*
         )*
 
         pub struct Pins<'a> {
@@ -186,22 +204,31 @@ macro_rules! pins {
 }
 
 pins!(
+    'A': {
+        OE_GPIOA_VALUE,
+        DO_GPIOA_SET, DO_GPIOA_CLEAR, DO_GPIOA_TOGGLE,
+        DI_GPIOA_VALUE,
+        [
+            (PA16, spi1_mosi, 16, PAD_PA16_FUNC_CTL, PAD_PA16_PAD_CTL, 5),
+            (PA21, spi1_clk,  21, PAD_PA21_FUNC_CTL, PAD_PA21_PAD_CTL, 5),
+            (PA23, spi1_miso, 23, PAD_PA23_FUNC_CTL, PAD_PA23_PAD_CTL, 5),
+            (PA26, reset,     26, PAD_PA26_FUNC_CTL, PAD_PA26_PAD_CTL, 0),
+            (PA27, spi2_mosi, 27, PAD_PA27_FUNC_CTL, PAD_PA27_PAD_CTL, 5),
+            (PA29, uart9_rx,  29, PAD_PA29_FUNC_CTL, PAD_PA29_PAD_CTL, 2),
+            (PA30, uart9_tx,  30, PAD_PA30_FUNC_CTL, PAD_PA30_PAD_CTL, 2),
+            (PA31, spi2_miso, 31, PAD_PA31_FUNC_CTL, PAD_PA31_PAD_CTL, 5),
+        ]
+    },
     'B': {
         OE_GPIOB_VALUE,
         DO_GPIOB_SET, DO_GPIOB_CLEAR, DO_GPIOB_TOGGLE,
         DI_GPIOB_VALUE,
         [
-            (PB18, led_g,  18, PAD_PB18_FUNC_CTL, PAD_PB18_PAD_CTL),
-            (PB19, led_r,  19, PAD_PB19_FUNC_CTL, PAD_PB19_PAD_CTL),
-            (PB20, led_b,  20, PAD_PB20_FUNC_CTL, PAD_PB20_PAD_CTL)
-        ]
-    },
-    'C': {
-        OE_GPIOC_VALUE,
-        DO_GPIOC_SET, DO_GPIOC_CLEAR, DO_GPIOC_TOGGLE,
-        DI_GPIOC_VALUE,
-        [
-            (PC03, pc03,  3, PAD_PC03_FUNC_CTL, PAD_PC03_PAD_CTL)
+            (PB00, spi2_clk,   0, PAD_PB00_FUNC_CTL, PAD_PB00_PAD_CTL, 5),
+            (PB14, led_debug, 14, PAD_PB14_FUNC_CTL, PAD_PB14_PAD_CTL, 0),
+            (PB18, led_green, 18, PAD_PB18_FUNC_CTL, PAD_PB18_PAD_CTL, 0),
+            (PB19, led_red,   19, PAD_PB19_FUNC_CTL, PAD_PB19_PAD_CTL, 0),
+            (PB20, led_blue,  20, PAD_PB20_FUNC_CTL, PAD_PB20_PAD_CTL, 0),
         ]
     },
     'D': {
@@ -209,8 +236,29 @@ pins!(
         DO_GPIOD_SET, DO_GPIOD_CLEAR, DO_GPIOD_TOGGLE,
         DI_GPIOD_VALUE,
         [
-            (PD14, pd14, 14, PAD_PD14_FUNC_CTL, PAD_PD14_PAD_CTL),
-            (PD15, pd15, 15, PAD_PD15_FUNC_CTL, PAD_PD15_PAD_CTL)
+            (PD15, led_uart, 15, PAD_PD15_FUNC_CTL, PAD_PD15_PAD_CTL, 0),
+            (PD30, xpi0_d2, 30, PAD_PD30_FUNC_CTL, PAD_PD30_PAD_CTL, 0),
+            (PD31, xpi0_d0, 31, PAD_PD31_FUNC_CTL, PAD_PD31_PAD_CTL, 0),
+        ]
+    },
+    'E': {
+        OE_GPIOE_VALUE,
+        DO_GPIOE_SET, DO_GPIOE_CLEAR, DO_GPIOE_TOGGLE,
+        DI_GPIOE_VALUE,
+        [
+            (PE02, xpi0_cs, 2, PAD_PE02_FUNC_CTL, PAD_PE02_PAD_CTL, 0),
+            (PE03, xpi0_d3, 3, PAD_PE03_FUNC_CTL, PAD_PE03_PAD_CTL, 0),
+            (PE04, xpi0_d1, 4, PAD_PE04_FUNC_CTL, PAD_PE04_PAD_CTL, 0),
+            (PE07, xpi0_sclk, 7, PAD_PE07_FUNC_CTL, PAD_PE07_PAD_CTL, 0),
+        ]
+    },
+    'Y': {
+        OE_GPIOY_VALUE,
+        DO_GPIOY_SET, DO_GPIOY_CLEAR, DO_GPIOY_TOGGLE,
+        DI_GPIOY_VALUE,
+        [
+            (PY06, uart0_tx,  6, PAD_PY06_FUNC_CTL, PAD_PY06_PAD_CTL, 2),
+            (PY07, uart0_rx,  7, PAD_PY07_FUNC_CTL, PAD_PY07_PAD_CTL, 2),
         ]
     }
 );
@@ -233,8 +281,92 @@ impl Gpio {
 
 impl<'a> Pins<'a> {
     pub fn setup(&self) {
-        self.led_r.set_af(0).set_mode_output().set_high();
-        self.led_g.set_af(0).set_mode_output().set_high();
-        self.led_b.set_af(0).set_mode_output().set_high();
+        // Setup RGB LED pinmux
+        self.led_red.set_open_drain().set_mode_output().set_high();
+        self.led_green.set_open_drain().set_mode_output().set_high();
+        self.led_blue.set_open_drain().set_mode_output().set_high();
+
+        // Open-drain output to RESET reset line (active low).
+        self.reset.set_high().set_open_drain().set_mode_output();
+
+        // Setup UART0 pinmux
+        self.uart0_tx.set_mode_alternate();
+        self.uart0_rx.set_mode_alternate();
+
+        self.xpi0_sclk.set_mode_output().set_high();
+        self.xpi0_cs.set_mode_output().set_high();
+        self.xpi0_d0.set_mode_output().set_high();
+        self.xpi0_d1.set_mode_output().set_high();
+        self.xpi0_d2.set_mode_output().set_high();
+        self.xpi0_d3.set_mode_output().set_high();
+    }
+
+    /// Place SPI pins into high-impedance mode
+    #[inline(always)]
+    pub fn high_impedance_mode(&self) {
+        self.reset.set_high().set_mode_output();
+        self.uart9_rx.set_mode_input();
+        self.spi1_clk.set_mode_input();
+        self.spi1_miso.set_mode_input();
+        self.spi1_mosi.set_mode_input();
+        self.spi2_clk.set_mode_input();
+        self.spi2_miso.set_mode_input();
+        self.spi2_mosi.set_mode_input();
+    }
+
+    /// Place SPI pins into JTAG mode
+    #[inline(always)]
+    pub fn jtag_mode(&self) {
+        self.reset.set_mode_output();
+        self.uart9_rx.set_mode_input();
+        self.spi1_clk.set_mode_input();
+        self.spi1_miso.set_mode_input();
+        self.spi1_mosi.set_mode_output();
+        self.spi2_clk.set_mode_alternate();
+        self.spi2_miso.set_mode_alternate();
+        self.spi2_mosi.set_mode_alternate();
+    }
+
+    /// Place SPI pins into SWD mode
+    #[inline(always)]
+    pub fn swd_mode(&self) {
+        self.reset.set_mode_input();
+        self.uart9_rx.set_mode_alternate();
+        self.spi2_clk.set_mode_input();
+        self.spi2_miso.set_mode_input();
+        self.spi2_mosi.set_mode_input();
+        self.spi1_clk.set_mode_alternate().set_loop_back(true);
+        self.spi1_miso.set_mode_alternate();
+        self.spi1_mosi.set_mode_alternate();
+    }
+
+    /// Disconnect SPI1_MOSI from SWDIO, target drives the bus
+    #[inline(always)]
+    pub fn swd_rx(&self) {
+        self.spi1_mosi.set_mode_output().set_high();
+    }
+
+    /// Connect SPI1_MOSI to SWDIO, SPI drives the bus
+    #[inline(always)]
+    pub fn swd_tx(&self) {
+        self.spi1_mosi.set_mode_alternate();
+    }
+
+    /// Connect SPI1_MOSI to SWDIO, manual bitbanging
+    #[inline(always)]
+    pub fn swd_tx_direct(&self) {
+        self.spi1_mosi.set_mode_output();
+    }
+
+    /// Swap SPI1_CLK pin to direct output mode for manual driving
+    #[inline(always)]
+    pub fn swd_clk_direct(&self) {
+        self.spi1_clk.set_mode_output();
+    }
+
+    /// Swap SPI1_CLK pin back to alternate mode for SPI use
+    #[inline(always)]
+    pub fn swd_clk_spi(&self) {
+        self.spi1_clk.set_mode_alternate().set_loop_back(true);
     }
 }

@@ -4,8 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-riscv = "0.10"
-hpm-rt = { git = "https://github.com/hpm-rs/hpm-rt" }
+riscv = { version = "0.10", features = ["critical-section-single-hart"] }
+hpm-rt = { git = "https://github.com/hpm-rs/hpm-rt", features = ["flash-xip"] }
 hpm-ral = { git = "https://github.com/hpm-rs/hpm-ral", features = ["hpm6750"] }
 hpm-probe-bsp = { path = "../hpm-probe-bsp" }
-panic-halt = "0.2"
+hpm-usbd = { path = "../../hpm-usbd", features = ["__log"] }
+usb-device = { version = "0.2.9", features = ["control-buffer-256"] }
+usbd-serial = { path = "../../usbd-serial" }
+num_enum = { version = "0.6.1", default-features = false }
+critical-section = "1.1"
+log = { version = "0.4", features = ["max_level_trace"] }
+git-version = "0.3.5"

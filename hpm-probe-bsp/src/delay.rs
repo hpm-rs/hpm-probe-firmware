@@ -1,7 +1,7 @@
 use crate::clock::Clocks;
 use core::sync::atomic::{AtomicU32, Ordering};
 use hpm_ral::mchtmr;
-use hpm_ral::{modify_reg, read_reg, write_reg};
+use hpm_ral::{read_reg, write_reg};
 
 pub struct Delay {
     mchtmr: mchtmr::MCHTMR,

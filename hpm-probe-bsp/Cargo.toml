@@ -6,3 +6,4 @@ edition = "2021"
 
 [dependencies]
 hpm-ral = { git = "https://github.com/hpm-rs/hpm-ral", features = ["hpm6750"] }
+hpm-usbd = { path = "../../hpm-usbd" }
